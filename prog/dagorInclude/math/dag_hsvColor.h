@@ -6,6 +6,7 @@
 #pragma once
 
 #include "dag_color.h"
+#include <algorithm>
 
 struct HsvColor
 {
@@ -15,103 +16,73 @@ public:
   float v; // [0..1]
 
   HsvColor() = default;
-  HsvColor(float h, float s, float v) : h(h), s(s), v(v) {}
-  HsvColor(const Color3 &rgb) { fromRGB(rgb.r, rgb.g, rgb.b); }
-  HsvColor(const Color4 &rgba) { fromRGB(rgba.r, rgba.g, rgba.b); }
+  explicit HsvColor(float h, float s, float v) : h(h), s(s), v(v) {}
+  explicit HsvColor(const Color3 &rgb) { 
+    float imax = std::max<float>(rgb.r, std::max<float>(rgb.g, rgb.b));
+    float imin = std::min<float>(rgb.r, std::min<float>(rgb.g, rgb.b));
+    h = 0;
+    s = 0;
+    v = imax;
+    
+    if (imax != 0)
+    {
+      s = (imax - imin) / imax;
+    }
+
+    if (s != 0)
+    {
+      float rc = (imax - rgb.r) / (imax - imin);
+      float gc = (imax - rgb.g) / (imax - imin);
+      float bc = (imax - rgb.b) / (imax - imin);
+      if (rgb.r == imax) 
+      {
+        h = bc - gc;
+      }
+      else if (rgb.g == imax)
+      {
+        h = 2.0f + rc - bc;
+      }
+      else
+      {
+        h = 4.0f + gc - rc;
+      }
+      h *= 60.0f;
+      if (h < 0.0) {
+        h += 360.0f;
+      }
+    }
+  }
+  explicit HsvColor(const Color4 &rgba): HsvaColor(Color3(rgba.r,rgba.g,rgba.b)) { }
 
   Color3 toRGB() const
   {
-    int i;
-    double f, p, q, t;
-    Color3 rgb = Color3(0, 0, 0);
-
-    if (s == 0)
-      rgb.r = rgb.g = rgb.b = v;
-    else
+    if (s == 0) 
     {
-      float seg = fmodf(h, 360.0) / 60;
-
-      i = seg;
-      f = seg - i;
-      p = v * (1.0 - s);
-      q = v * (1.0 - (s * f));
-      t = v * (1.0 - (s * (1.0 - f)));
-      G_ASSERT(i >= 0 && i <= 5);
-      switch (i)
-      {
-        case 0:
-          rgb.r = v;
-          rgb.g = t;
-          rgb.b = p;
-          break;
-
-        case 1:
-          rgb.r = q;
-          rgb.g = v;
-          rgb.b = p;
-          break;
-
-        case 2:
-          rgb.r = p;
-          rgb.g = v;
-          rgb.b = t;
-          break;
-
-        case 3:
-          rgb.r = p;
-          rgb.g = q;
-          rgb.b = v;
-          break;
-
-        case 4:
-          rgb.r = t;
-          rgb.g = p;
-          rgb.b = v;
-          break;
-
-        case 5:
-          rgb.r = v;
-          rgb.g = p;
-          rgb.b = q;
-          break;
-      }
-    }
-
-    return rgb;
-  }
-
-private:
-  void fromRGB(float r, float g, float b)
-  {
-    double imax = max(r, max(g, b));
-    double imin = min(r, min(g, b));
-    double rc, gc, bc;
-
-    h = s = 0;
-
-    v = imax;
-    if (imax != 0)
-      s = (imax - imin) / imax;
-    else
-      s = 0;
-
-    if (s == 0)
-      h = 0;
-    else
+      return Color3(v,v,v);
+    } 
+    const float seg = fmodf(h, 360.0) / 60;
+    const int i = static_cast<int>(seg);
+    const double f = seg - i;
+    const double p = v * (1.0 - s);
+    const double q = v * (1.0 - (s * f));
+    const double t = v * (1.0 - (s * (1.0 - f)));
+    G_ASSERT(i >= 0 && i <= 5);
+    switch (i)
     {
-      rc = (imax - r) / (imax - imin);
-      gc = (imax - g) / (imax - imin);
-      bc = (imax - b) / (imax - imin);
-      if (r == imax)
-        h = bc - gc;
-      else if (g == imax)
-        h = 2.0 + rc - bc;
-      else
-        h = 4.0 + gc - rc;
-      h *= 60.0;
-      if (h < 0.0)
-        h += 360.0;
+      case 0:
+        return Color3(v,t,p);
+      case 1:
+        return Color3(q,v,p);
+      case 2:
+        return Color3(p,v,t);
+      case 3:
+        return Color3(p,q,v);
+      case 4:
+        return Color3(t,p,v);
+      case 5:
+        return Color3(v,p,q);
     }
+    return Color3(0,0,0);
   }
 };
 
@@ -124,9 +95,9 @@ public:
   float a; // [0..1]
 
   HsvaColor() = default;
-  HsvaColor(float h, float s, float v, float a) : h(h), s(s), v(v), a(a) {}
-  HsvaColor(const HsvColor &hsv, float a = 1) : h(hsv.h), s(hsv.s), v(hsv.v), a(a) {}
-  HsvaColor(const Color3 &rgb, float a = 1) : a(a)
+  explicit HsvaColor(float h, float s, float v, float a) : h(h), s(s), v(v), a(a) {}
+  explicit HsvaColor(const HsvColor &hsv, float a = 1) : h(hsv.h), s(hsv.s), v(hsv.v), a(a) {}
+  explicit HsvaColor(const Color3 &rgb, float a = 1) : a(a)
   {
     HsvColor hsv(rgb);
     h = hsv.h;

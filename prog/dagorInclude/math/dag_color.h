@@ -5,6 +5,7 @@
 //
 #pragma once
 
+#include "dag_hsvColor.h"
 #include <math/dag_e3dColor.h>
 #include <math/dag_mathBase.h>
 #include <util/dag_globDef.h> //min/max
@@ -14,6 +15,15 @@
 #define colorinline __forceinline
 
 // Colors used in Driver3d materials and lighting //
+
+struct ColorHsva {
+  real h,s,v,a;
+  
+  colorinline ColorHsva() = default;
+  colorinline ColorHsva(float hh, float ss, float vv, float aa = 0) : h(hh), s(ss), v(vv), a(aa) {}
+  colorinline ColorHsva operator*(float k) const { return ColorHsva(h * k, s * k, v * k, a * k); }
+  colorinline ColorHsva operator+(const ColorHsva &c) const { return ColorHsva(h + c.h, s + c.s, v + c.v, a + c.a); }
+};
 
 struct Color4
 {
@@ -398,6 +408,60 @@ colorinline Color3 color3(E3DCOLOR c) { return Color3(c); }
 
 colorinline Color4 color4(const Color3 &c, real a) { return Color4(c.r, c.g, c.b, a); }
 colorinline Color3 color3(const Color4 &c) { return Color3(c.r, c.g, c.b); }
+colorinline ColorHsva hsva(const Color4&c) {
+  ColorHsva out;
+  out.a = in.a;
+
+  float min = in.r < in.g ? in.r : in.g;
+  min = min < in.b ? min : in.b;
+
+  float max = in.r > in.g ? in.r : in.g;
+  max = max > in.b ? max : in.b;
+
+  out.v = max;
+  float delta = max - min;
+  if (delta < 1e-6f)
+  {
+    out.s = 0;
+    out.h = 0;
+    return out;
+  }
+
+  if (max > 1e-5f)
+  {
+    out.s = (delta / max);
+  }
+  else
+  {
+    // if max is 0, then r = g = b = 0
+    // s = 0, v is undefined
+    out.s = 0;
+    out.h = 0; // undefined
+    return out;
+  }
+
+  if (in.r >= max) 
+  {
+    out.h = (in.g - in.b) / delta; // between yellow & magenta
+  }
+  else if (in.g >= max)
+  {
+    out.h = 2.0 + (in.b - in.r) / delta; // between cyan & yellow
+  }
+  else
+  {
+    out.h = 4.0 + (in.r - in.g) / delta; // between magenta & cyan
+  }
+
+  out.h *= 60.0f; // degrees
+
+  if (out.h < 0.0) 
+  {
+    out.h += 360.0f;
+  }
+
+  return out;
+}
 
 colorinline E3DCOLOR e3dcolor(const Color3 &c, unsigned a = 255)
 {
